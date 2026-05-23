@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0d0d0d">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="stylesheet" href="style.css?v=5">
+  <title>Expense Tracker</title>
+</head>
+<body>
+
+<main class="app">
+
+  <!-- ── Home view ── -->
+  <div id="view-home" class="view active">
+    <header class="view-header">
+      <h1 id="home-month"></h1>
+    </header>
+    <div id="home-stats"></div>
+    <div class="expense-list" id="home-expense-list"></div>
+    <div class="empty-state" id="home-empty" style="display:none">
+      <p>No expenses this month</p>
+      <p style="font-size:13px">Tap + to add your first expense</p>
+    </div>
+  </div>
+
+  <!-- ── Add view ── -->
+  <div id="view-add" class="view">
+    <header class="view-header">
+      <h1>Add Expense</h1>
+    </header>
+    <form id="add-form" novalidate>
+      <div class="amount-section">
+        <div class="amount-wrapper">
+          <input
+            type="text"
+            inputmode="decimal"
+            id="expense-amount"
+            placeholder="0.00"
+            autocomplete="off"
+            autocorrect="off"
+          >
+        </div>
+      </div>
+      <div class="currency-toggle">
+        <button type="button" class="currency-btn active" data-currency="IQD">IQD</button>
+        <button type="button" class="currency-btn" data-currency="USD">USD</button>
+      </div>
+      <div class="section-label">Category</div>
+      <div class="category-grid" id="category-grid"></div>
+      <div class="field-group">
+        <input type="text" id="expense-note" placeholder="Note (optional)" maxlength="100" autocomplete="off">
+      </div>
+      <div class="field-group">
+        <input type="date" id="expense-date">
+      </div>
+      <div id="add-feedback" class="feedback" role="alert" aria-live="polite"></div>
+      <button type="submit" class="submit-btn">Add Expense</button>
+    </form>
+  </div>
+
+  <!-- ── History view ── -->
+  <div id="view-history" class="view">
+    <header class="view-header">
+      <h1>History</h1>
+    </header>
+    <div id="history-list"></div>
+    <div class="empty-state" id="history-empty" style="display:none">
+      <p>No expenses yet</p>
+    </div>
+  </div>
+
+  <!-- ── Summary view ── -->
+  <div id="view-summary" class="view">
+    <header class="view-header">
+      <h1>Summary</h1>
+    </header>
+
+    <div class="mode-toggle">
+      <button class="mode-btn active" data-mode="monthly">Monthly</button>
+      <button class="mode-btn" data-mode="weekly">Weekly</button>
+    </div>
+
+    <!-- Monthly section -->
+    <div id="monthly-section">
+      <div class="period-nav">
+        <button class="nav-arrow" id="prev-month">&#8249;</button>
+        <span class="period-label" id="summary-month-label"></span>
+        <button class="nav-arrow" id="next-month">&#8250;</button>
+      </div>
+      <div id="monthly-charts">
+        <div class="chart-card">
+          <div class="chart-title">By Category</div>
+          <canvas id="pie-chart"></canvas>
+        </div>
+        <div class="chart-card">
+          <div class="chart-title">Daily Spending</div>
+          <canvas id="monthly-bar-chart"></canvas>
+        </div>
+        <div class="breakdown-section" id="monthly-breakdown"></div>
+      </div>
+      <div class="empty-state" id="monthly-empty" style="display:none">
+        <p>No data for this month</p>
+      </div>
+    </div>
+
+    <!-- Weekly section -->
+    <div id="weekly-section" style="display:none">
+      <div class="period-nav">
+        <button class="nav-arrow" id="prev-week">&#8249;</button>
+        <span class="period-label" id="summary-week-label"></span>
+        <button class="nav-arrow" id="next-week">&#8250;</button>
+      </div>
+      <div class="totals-row">
+        <div class="total-card">
+          <div class="total-label">IQD This Week</div>
+          <div class="total-amount" id="week-total-iqd">0 IQD</div>
+        </div>
+        <div class="total-card">
+          <div class="total-label">USD This Week</div>
+          <div class="total-amount" id="week-total-usd">$0.00</div>
+        </div>
+      </div>
+      <div id="weekly-charts">
+        <div class="chart-card">
+          <div class="chart-title">Daily Spending (Sat–Fri)</div>
+          <canvas id="weekly-bar-chart"></canvas>
+        </div>
+        <div class="breakdown-section" id="weekly-breakdown"></div>
+      </div>
+      <div class="empty-state" id="weekly-empty" style="display:none">
+        <p>No data for this week</p>
+      </div>
+    </div>
+
+  </div><!-- /view-summary -->
+
+</main><!-- /app -->
+
+<!-- Bottom navigation -->
+<nav class="bottom-nav" role="navigation" aria-label="Main navigation">
+  <button class="nav-item active" data-view="home" aria-label="Home">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H5a1 1 0 01-1-1V9.5z"/>
+      <path d="M9 21V12h6v9"/>
+    </svg>
+    <span>Home</span>
+  </button>
+  <button class="nav-item" data-view="add" aria-label="Add expense">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 8v8M8 12h8"/>
+    </svg>
+    <span>Add</span>
+  </button>
+  <button class="nav-item" data-view="history" aria-label="History">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 8v4l3 3"/>
+      <path d="M3.05 11a9 9 0 1 0 .5-3M3 4v4h4"/>
+    </svg>
+    <span>History</span>
+  </button>
+  <button class="nav-item" data-view="summary" aria-label="Summary">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="12" width="4" height="9"/>
+      <rect x="10" y="7" width="4" height="14"/>
+      <rect x="17" y="3" width="4" height="18"/>
+    </svg>
+    <span>Summary</span>
+  </button>
+</nav>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="app.js?v=4"></script>
+</body>
+</html>
