@@ -384,7 +384,11 @@ document.addEventListener('click', async (e) => {
 async function renderHome() {
   const [allPeriods, expenses, savings] = await Promise.all([getAllPeriods(), getAllExpenses(), getSavings()]);
 
-  const period = allPeriods.find((p) => !p.endDate) || null;
+  // Use the most-recently-started active period (guards against orphaned periods)
+  const period = allPeriods
+    .filter((p) => !p.endDate)
+    .sort((a, b) => b.startDate.localeCompare(a.startDate))[0] || null;
+
   const closed = allPeriods
     .filter((p) => p.endDate)
     .sort((a, b) => b.endDate.localeCompare(a.endDate));
@@ -465,7 +469,11 @@ async function renderHome() {
   document.getElementById('home-month').textContent =
     `${fmtDate(period.startDate)} – ongoing`;
 
-  const periodExp = expenses.filter((e) => e.date >= period.startDate);
+  // Exclude expenses that fall inside any already-closed period (prevents double-counting on date overlap)
+  const periodExp = expenses.filter((e) =>
+    e.date >= period.startDate &&
+    !closed.some((p) => e.date >= p.startDate && e.date <= p.endDate)
+  );
   const spentIQD  = sumBy(periodExp, 'IQD');
   const spentUSD  = sumBy(periodExp, 'USD');
   const remIQD    = (period.incomeIQD || 0) - spentIQD;
@@ -614,6 +622,11 @@ async function renderHome() {
     }
 
     if (savingsChanged) await saveSavings(newIQD, newUSD);
+
+    // Auto-start next period from the day after the end date
+    const [yr, mo, dy] = endDate.split('-').map(Number);
+    const nextStart = dateToStr(new Date(yr, mo - 1, dy + 1));
+    await savePeriod({ startDate: nextStart, endDate: null, incomeIQD: 0, incomeUSD: 0 });
 
     renderHome();
   });
