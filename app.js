@@ -480,13 +480,6 @@ async function renderHome() {
   const remUSD    = (period.incomeUSD || 0) - spentUSD;
   const incomeSet = period.incomeIQD > 0 || period.incomeUSD > 0;
 
-  // Default end-date to yesterday so the new period can start today
-  const endDateDefault = (() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return dateToStr(d);
-  })();
-
   statsEl.innerHTML = `
     ${savingsHtml(savings)}
     <div class="home-section-header">
@@ -557,7 +550,7 @@ async function renderHome() {
       <div class="income-editor" style="display:block;margin:0">
         <div class="income-input-group" style="margin-bottom:12px">
           <span class="income-input-label">End Date</span>
-          <input type="date" id="end-date-input" value="${endDateDefault}"
+          <input type="date" id="end-date-input" value="${todayStr()}"
             style="height:46px;background:var(--elevated);border:1px solid var(--border);
                    border-radius:var(--radius-btn);color:var(--text);font-size:15px;
                    font-family:inherit;padding:0 12px;outline:none;width:100%;">
@@ -629,9 +622,6 @@ async function renderHome() {
     }
 
     if (savingsChanged) await saveSavings(newIQD, newUSD);
-
-    // Auto-start next period from today so expenses added right away are captured
-    await savePeriod({ startDate: todayStr(), endDate: null, incomeIQD: 0, incomeUSD: 0 });
 
     renderHome();
   });
