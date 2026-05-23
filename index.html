@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0d0d0d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=7">
   <title>Expense Tracker</title>
 </head>
 <body>
@@ -52,6 +52,9 @@
       </div>
       <div class="section-label">Category</div>
       <div class="category-grid" id="category-grid"></div>
+      <div class="field-group" id="other-label-group" style="display:none">
+        <input type="text" id="other-label" placeholder="What is it?" maxlength="50" autocomplete="off">
+      </div>
       <div class="field-group">
         <input type="text" id="expense-note" placeholder="Note (optional)" maxlength="100" autocomplete="off">
       </div>
@@ -71,6 +74,9 @@
     <div id="history-list"></div>
     <div class="empty-state" id="history-empty" style="display:none">
       <p>No expenses yet</p>
+    </div>
+    <div class="danger-zone">
+      <button class="clear-data-btn" id="clear-data-btn">Clear All Data</button>
     </div>
   </div>
 
@@ -175,6 +181,6 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

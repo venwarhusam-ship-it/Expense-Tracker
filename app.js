@@ -221,6 +221,32 @@ function switchView(view) {
   else if (view === 'add') resetAddForm();
 }
 
+// ── Clear all data ────────────────────────────────
+document.addEventListener('click', (e) => {
+  if (e.target.id !== 'clear-data-btn') return;
+  if (!confirm('Delete ALL expenses, periods, and income? This cannot be undone.')) return;
+  clearAllData();
+});
+
+function clearAllData() {
+  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE];
+  let done = 0;
+  stores.forEach((storeName) => {
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).clear();
+    tx.oncomplete = () => {
+      done++;
+      if (done === stores.length) {
+        switchView('home');
+      }
+    };
+    tx.onerror = () => {
+      done++;
+      if (done === stores.length) switchView('home');
+    };
+  });
+}
+
 // ═══════════════════════════════════════════════════
 //  HOME VIEW
 // ═══════════════════════════════════════════════════
@@ -577,13 +603,16 @@ function renderExpenseItems(containerId, expenses, onDelete) {
 
   expenses.forEach((expense) => {
     const cat = CATEGORIES.find((c) => c.name === expense.category) || CATEGORIES[7];
+    const displayName = expense.category === 'Other' && expense.customCategory
+      ? escHtml(expense.customCategory)
+      : escHtml(expense.category);
     const item = document.createElement('div');
     item.className = 'expense-item';
     item.style.setProperty('--dot-color', cat.color);
     item.innerHTML = `
       <div class="expense-dot" style="background:${cat.color}"></div>
       <div class="expense-info">
-        <div class="expense-category">${escHtml(expense.category)}</div>
+        <div class="expense-category">${displayName}</div>
         ${expense.note ? `<div class="expense-note">${escHtml(expense.note)}</div>` : ''}
         <div class="expense-date">${fmtDate(expense.date)}</div>
       </div>
@@ -667,6 +696,12 @@ function setupAddForm() {
     document.querySelectorAll('.category-btn').forEach((b) =>
       b.classList.toggle('active', b.dataset.category === selectedCategory)
     );
+    // Show "What is it?" only for Other
+    const otherGroup = document.getElementById('other-label-group');
+    otherGroup.style.display = selectedCategory === 'Other' ? 'block' : 'none';
+    if (selectedCategory === 'Other') {
+      document.getElementById('other-label').focus();
+    }
   });
 
   // Amount: strip non-numeric characters (allow one decimal point)
@@ -697,6 +732,8 @@ function resetAddForm() {
   document.querySelectorAll('.category-btn').forEach((b) =>
     b.classList.remove('active')
   );
+  document.getElementById('other-label').value = '';
+  document.getElementById('other-label-group').style.display = 'none';
   const fb = document.getElementById('add-feedback');
   fb.textContent = '';
   fb.className = 'feedback';
@@ -720,9 +757,12 @@ async function handleAddSubmit() {
 
   const note = document.getElementById('expense-note').value.trim();
   const date = document.getElementById('expense-date').value || todayStr();
+  const customCategory = selectedCategory === 'Other'
+    ? document.getElementById('other-label').value.trim()
+    : '';
 
   try {
-    await addExpenseToDB({ amount, currency: selectedCurrency, category: selectedCategory, note, date });
+    await addExpenseToDB({ amount, currency: selectedCurrency, category: selectedCategory, customCategory, note, date });
     fb.textContent = 'Expense added!';
     fb.className = 'feedback success';
     resetAddForm();
@@ -1008,17 +1048,19 @@ function buildBreakdownTable(containerId, expenses) {
 
   const data = {};
   expenses.forEach((e) => {
-    if (!data[e.category]) data[e.category] = { IQD: 0, USD: 0, count: 0 };
-    data[e.category][e.currency] += e.amount;
-    data[e.category].count++;
+    const key = e.category === 'Other' && e.customCategory
+      ? `Other: ${e.customCategory}`
+      : e.category;
+    if (!data[key]) data[key] = { IQD: 0, USD: 0, count: 0, color: (CATEGORIES.find((c) => c.name === e.category) || { color: '#606060' }).color };
+    data[key][e.currency] += e.amount;
+    data[key].count++;
   });
 
   const rows = Object.entries(data)
     .sort((a, b) => (b[1].IQD + b[1].USD) - (a[1].IQD + a[1].USD))
     .map(([cat, d]) => {
-      const info = CATEGORIES.find((c) => c.name === cat) || { color: '#606060' };
       return `<tr>
-        <td><span class="cat-dot" style="background:${info.color}"></span>${escHtml(cat)}</td>
+        <td><span class="cat-dot" style="background:${d.color}"></span>${escHtml(cat)}</td>
         <td>${d.IQD > 0 ? fmtAmount(d.IQD, 'IQD') : '—'}</td>
         <td>${d.USD > 0 ? fmtAmount(d.USD, 'USD') : '—'}</td>
         <td>${d.count}</td>
