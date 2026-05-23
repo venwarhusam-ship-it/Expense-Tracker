@@ -2,10 +2,11 @@
 //  CONFIG
 // ═══════════════════════════════════════════════════
 const DB_NAME = 'ExpenseDB';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_NAME = 'expenses';
 const INCOME_STORE = 'income';   // kept so upgrade path doesn't error
 const PERIODS_STORE = 'periods';
+const SAVINGS_STORE = 'savings';
 
 const CATEGORIES = [
   { name: 'Food',          icon: '🍔', color: '#c0622a' },
@@ -97,6 +98,10 @@ function openDB() {
       if (!database.objectStoreNames.contains(PERIODS_STORE)) {
         database.createObjectStore(PERIODS_STORE, { keyPath: 'id', autoIncrement: true });
       }
+      // v4 – savings (single record, id=1)
+      if (!database.objectStoreNames.contains(SAVINGS_STORE)) {
+        database.createObjectStore(SAVINGS_STORE, { keyPath: 'id' });
+      }
     };
   });
 }
@@ -158,6 +163,28 @@ function savePeriod(period) {
 async function getActivePeriod() {
   const all = await getAllPeriods();
   return all.find((p) => !p.endDate) || null;
+}
+
+// ── Savings CRUD ─────────────────────────────────
+function getSavings() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SAVINGS_STORE, 'readonly');
+    const store = tx.objectStore(SAVINGS_STORE);
+    const req = store.get(1);
+    req.onsuccess = () => resolve(req.result || { id: 1, iqd: 0, usd: 0 });
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function saveSavings(iqd, usd) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SAVINGS_STORE, 'readwrite');
+    const store = tx.objectStore(SAVINGS_STORE);
+    const req = store.put({ id: 1, iqd, usd });
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+    tx.onerror = () => reject(tx.error);
+  });
 }
 
 // Cumulative = sum of (income − spent) for every CLOSED period.
@@ -229,7 +256,7 @@ document.addEventListener('click', (e) => {
 });
 
 function clearAllData() {
-  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE];
+  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE, SAVINGS_STORE];
   let done = 0;
   stores.forEach((storeName) => {
     const tx = db.transaction(storeName, 'readwrite');
@@ -241,7 +268,7 @@ function clearAllData() {
 
 // Clears all stores and resolves when done (no navigation)
 function clearAllStores() {
-  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE];
+  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE, SAVINGS_STORE];
   return Promise.all(stores.map((name) =>
     new Promise((resolve) => {
       const tx = db.transaction(name, 'readwrite');
@@ -254,12 +281,13 @@ function clearAllStores() {
 
 // ── Backup ────────────────────────────────────────
 async function backupData() {
-  const [expenses, periods] = await Promise.all([getAllExpenses(), getAllPeriods()]);
+  const [expenses, periods, savings] = await Promise.all([getAllExpenses(), getAllPeriods(), getSavings()]);
   const payload = {
     version: 1,
     exportedAt: new Date().toISOString(),
     expenses,
     periods,
+    savings,
   };
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -317,6 +345,11 @@ document.addEventListener('change', async (e) => {
       await savePeriod(rest);
     }
 
+    // Restore savings
+    if (payload.savings) {
+      await saveSavings(payload.savings.iqd || 0, payload.savings.usd || 0);
+    }
+
     switchView('home');
   } catch (err) {
     alert('Restore failed: ' + (err?.message || err));
@@ -329,11 +362,27 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#restore-btn')) document.getElementById('restore-file-input').click();
 });
 
+// Savings toggle (delegated — savings section re-renders with home)
+document.addEventListener('click', (e) => {
+  if (e.target.id !== 'savings-toggle-btn') return;
+  const ed = document.getElementById('savings-editor');
+  if (ed) ed.style.display = ed.style.display === 'none' ? 'block' : 'none';
+});
+
+// Save savings (delegated)
+document.addEventListener('click', async (e) => {
+  if (e.target.id !== 'save-savings-btn') return;
+  const iqd = parseFloat(document.getElementById('sav-iqd').value) || 0;
+  const usd = parseFloat(document.getElementById('sav-usd').value) || 0;
+  await saveSavings(iqd, usd);
+  renderHome();
+});
+
 // ═══════════════════════════════════════════════════
 //  HOME VIEW
 // ═══════════════════════════════════════════════════
 async function renderHome() {
-  const [allPeriods, expenses] = await Promise.all([getAllPeriods(), getAllExpenses()]);
+  const [allPeriods, expenses, savings] = await Promise.all([getAllPeriods(), getAllExpenses(), getSavings()]);
 
   const period = allPeriods.find((p) => !p.endDate) || null;
   const closed = allPeriods
@@ -364,6 +413,7 @@ async function renderHome() {
     document.getElementById('home-month').textContent = 'No Active Period';
 
     statsEl.innerHTML = `
+      ${savingsHtml(savings)}
       ${hasCumulative ? cumulativeHtml(cumulative) : ''}
       ${periodHistoryHtml(history)}
       <div class="no-period-wrap">
@@ -423,6 +473,7 @@ async function renderHome() {
   const incomeSet = period.incomeIQD > 0 || period.incomeUSD > 0;
 
   statsEl.innerHTML = `
+    ${savingsHtml(savings)}
     <div class="home-section-header">
       <span class="home-section-title">Current Period</span>
       <button class="income-toggle-btn" id="income-toggle-btn">
@@ -608,6 +659,46 @@ function periodHistoryHtml(history) {
         <span class="home-section-title">Month History</span>
       </div>
       <div class="ph-list">${items}</div>
+    </div>`;
+}
+
+function savingsHtml(savings) {
+  const iqd = savings.iqd || 0;
+  const usd = savings.usd || 0;
+  const hasData = iqd !== 0 || usd !== 0;
+  return `
+    <div class="savings-section">
+      <div class="home-section-header">
+        <span class="home-section-title">Savings</span>
+        <button class="savings-toggle-btn" id="savings-toggle-btn">
+          ${hasData ? '✎ Edit' : '+ Set Amount'}
+        </button>
+      </div>
+      <div class="income-editor savings-editor" id="savings-editor" style="display:none">
+        <div class="income-inputs">
+          <div class="income-input-group">
+            <span class="income-input-label">IQD Savings</span>
+            <input type="text" inputmode="decimal" id="sav-iqd"
+              placeholder="0" value="${iqd || ''}" autocomplete="off">
+          </div>
+          <div class="income-input-group">
+            <span class="income-input-label">USD Savings</span>
+            <input type="text" inputmode="decimal" id="sav-usd"
+              placeholder="0" value="${usd || ''}" autocomplete="off">
+          </div>
+        </div>
+        <button class="save-savings-btn" id="save-savings-btn">Save Savings</button>
+      </div>
+      <div class="stat-row" style="padding:0 20px 16px">
+        <div class="stat-card savings-card">
+          <div class="stat-label">IQD Savings</div>
+          <div class="stat-value savings-value">${fmtAmount(iqd, 'IQD')}</div>
+        </div>
+        <div class="stat-card savings-card">
+          <div class="stat-label">USD Savings</div>
+          <div class="stat-value savings-value">${fmtAmount(usd, 'USD')}</div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -926,17 +1017,27 @@ async function renderMonthlySummary() {
   document.getElementById('monthly-empty').style.display = 'none';
   document.getElementById('monthly-charts').style.display = '';
 
-  // ── Pie chart: transaction count per category (currency-neutral) ──
-  const catCount = {};
+  // ── Pie chart: amount spent per category ──
+  // Key = display name (uses customCategory for "Other" items)
+  const catIQD = {}, catUSD = {}, catColor = {};
   month.forEach((e) => {
-    catCount[e.category] = (catCount[e.category] || 0) + 1;
+    const key = e.category === 'Other' && e.customCategory
+      ? e.customCategory : e.category;
+    const color = (CATEGORIES.find((c) => c.name === e.category) || { color: '#606060' }).color;
+    catColor[key] = color;
+    if (e.currency === 'IQD') catIQD[key] = (catIQD[key] || 0) + e.amount;
+    else                       catUSD[key] = (catUSD[key] || 0) + e.amount;
   });
-  const activeCategories = Object.keys(catCount);
-  const pieValues = activeCategories.map((k) => catCount[k]);
-  const pieColors = activeCategories.map(
-    (k) => (CATEGORIES.find((c) => c.name === k) || { color: '#606060' }).color
-  );
-  buildPieChart(activeCategories, pieValues, pieColors);
+
+  // Use IQD if any IQD data exists; otherwise fall back to USD
+  const hasIQDPie = Object.values(catIQD).some((v) => v > 0);
+  const pieSource   = hasIQDPie ? catIQD : catUSD;
+  const pieCurrency = hasIQDPie ? 'IQD'  : 'USD';
+
+  const activeCategories = Object.keys(pieSource).filter((k) => pieSource[k] > 0);
+  const pieValues  = activeCategories.map((k) => pieSource[k]);
+  const pieColors  = activeCategories.map((k) => catColor[k] || '#606060');
+  buildPieChart(activeCategories, pieValues, pieColors, pieCurrency);
 
   // ── Monthly bar chart: daily IQD + USD ──
   const daysInMonth = new Date(
@@ -1019,7 +1120,7 @@ const CHART_DEFAULTS = {
   maintainAspectRatio: true,
 };
 
-function buildPieChart(labels, data, colors) {
+function buildPieChart(labels, data, colors, currency) {
   destroyChart('pie');
   const ctx = document.getElementById('pie-chart');
   if (!ctx) return;
@@ -1048,7 +1149,7 @@ function buildPieChart(labels, data, colors) {
         },
         tooltip: {
           callbacks: {
-            label: (ctx) => ` ${ctx.label}: ${ctx.parsed.toLocaleString('en-US')}`,
+            label: (ctx) => ` ${ctx.label}: ${fmtAmount(ctx.parsed, currency || 'IQD')}`,
           },
         },
       },
