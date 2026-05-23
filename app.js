@@ -362,14 +362,14 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('#restore-btn')) document.getElementById('restore-file-input').click();
 });
 
-// Savings toggle (delegated — savings section re-renders with home)
+// Savings edit toggle
 document.addEventListener('click', (e) => {
   if (e.target.id !== 'savings-toggle-btn') return;
   const ed = document.getElementById('savings-editor');
   if (ed) ed.style.display = ed.style.display === 'none' ? 'block' : 'none';
 });
 
-// Save savings (delegated)
+// Save savings total (delegated)
 document.addEventListener('click', async (e) => {
   if (e.target.id !== 'save-savings-btn') return;
   const iqd = parseFloat(document.getElementById('sav-iqd').value) || 0;
@@ -587,6 +587,34 @@ async function renderHome() {
     }
     period.endDate = endDate;
     await savePeriod(period);
+
+    // Handle savings: negative remainder auto-deducted, positive asks user
+    const periodExp = expenses.filter((e) => e.date >= period.startDate && e.date <= period.endDate);
+    const remIQD = (period.incomeIQD || 0) - sumBy(periodExp, 'IQD');
+    const remUSD = (period.incomeUSD || 0) - sumBy(periodExp, 'USD');
+
+    const cur = await getSavings();
+    let newIQD = cur.iqd || 0;
+    let newUSD = cur.usd || 0;
+    let savingsChanged = false;
+
+    // Negative: auto-deduct from savings
+    if (remIQD < 0) { newIQD += remIQD; savingsChanged = true; }
+    if (remUSD < 0) { newUSD += remUSD; savingsChanged = true; }
+
+    // Positive: ask user
+    const posParts = [];
+    if (remIQD > 0) posParts.push(fmtAmount(remIQD, 'IQD'));
+    if (remUSD > 0) posParts.push(fmtAmount(remUSD, 'USD'));
+    if (posParts.length > 0) {
+      if (confirm(`You have ${posParts.join(' + ')} left over.\n\nAdd this to your savings?`)) {
+        if (remIQD > 0) { newIQD += remIQD; savingsChanged = true; }
+        if (remUSD > 0) { newUSD += remUSD; savingsChanged = true; }
+      }
+    }
+
+    if (savingsChanged) await saveSavings(newIQD, newUSD);
+
     renderHome();
   });
 
@@ -687,7 +715,7 @@ function savingsHtml(savings) {
               placeholder="0" value="${usd || ''}" autocomplete="off">
           </div>
         </div>
-        <button class="save-savings-btn" id="save-savings-btn">Save Savings</button>
+        <button class="save-savings-btn" id="save-savings-btn">Save</button>
       </div>
       <div class="stat-row" style="padding:0 20px 16px">
         <div class="stat-card savings-card">
