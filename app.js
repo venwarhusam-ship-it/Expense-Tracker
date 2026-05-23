@@ -234,18 +234,100 @@ function clearAllData() {
   stores.forEach((storeName) => {
     const tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).clear();
-    tx.oncomplete = () => {
-      done++;
-      if (done === stores.length) {
-        switchView('home');
-      }
-    };
-    tx.onerror = () => {
-      done++;
-      if (done === stores.length) switchView('home');
-    };
+    tx.oncomplete = () => { done++; if (done === stores.length) switchView('home'); };
+    tx.onerror  = () => { done++; if (done === stores.length) switchView('home'); };
   });
 }
+
+// Clears all stores and resolves when done (no navigation)
+function clearAllStores() {
+  const stores = [STORE_NAME, INCOME_STORE, PERIODS_STORE];
+  return Promise.all(stores.map((name) =>
+    new Promise((resolve) => {
+      const tx = db.transaction(name, 'readwrite');
+      tx.objectStore(name).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = resolve; // resolve anyway so restore can continue
+    })
+  ));
+}
+
+// ── Backup ────────────────────────────────────────
+async function backupData() {
+  const [expenses, periods] = await Promise.all([getAllExpenses(), getAllPeriods()]);
+  const payload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    expenses,
+    periods,
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `expenses-backup-${todayStr()}.json`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+
+// ── Restore ───────────────────────────────────────
+document.addEventListener('change', async (e) => {
+  if (e.target.id !== 'restore-file-input') return;
+  const file = e.target.files[0];
+  if (!file) return;
+  e.target.value = ''; // reset so same file can be picked again
+
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    alert('Could not read file — make sure it is a valid backup.');
+    return;
+  }
+
+  if (!Array.isArray(payload.expenses)) {
+    alert('Invalid backup file.');
+    return;
+  }
+
+  const expCount    = payload.expenses.length;
+  const periodCount = (payload.periods || []).length;
+  const exportedAt  = payload.exportedAt
+    ? new Date(payload.exportedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'unknown date';
+
+  if (!confirm(
+    `Restore backup from ${exportedAt}?\n\n` +
+    `• ${expCount} expense${expCount !== 1 ? 's' : ''}\n` +
+    `• ${periodCount} period${periodCount !== 1 ? 's' : ''}\n\n` +
+    `This will replace ALL current data.`
+  )) return;
+
+  try {
+    await clearAllStores();
+
+    // Restore expenses (strip old IDs so DB auto-assigns new ones)
+    for (const { id, ...rest } of payload.expenses) {
+      await addExpenseToDB(rest);
+    }
+
+    // Restore periods
+    for (const { id, ...rest } of (payload.periods || [])) {
+      await savePeriod(rest);
+    }
+
+    switchView('home');
+  } catch (err) {
+    alert('Restore failed: ' + (err?.message || err));
+  }
+});
+
+// Wire up backup/restore buttons (delegated)
+document.addEventListener('click', (e) => {
+  if (e.target.closest('#backup-btn'))  backupData();
+  if (e.target.closest('#restore-btn')) document.getElementById('restore-file-input').click();
+});
 
 // ═══════════════════════════════════════════════════
 //  HOME VIEW

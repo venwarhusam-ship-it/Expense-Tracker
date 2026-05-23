@@ -1024,6 +1024,73 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   color: var(--muted);
 }
 
+/* ── Backup & Restore ── */
+.backup-section {
+  margin: 16px 20px 4px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  padding: 16px;
+}
+
+.backup-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.backup-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.backup-btn {
+  flex: 1;
+  height: 50px;
+  background: var(--elevated);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-btn);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.backup-btn:active {
+  background: var(--border);
+}
+
+.backup-btn.restore {
+  border-color: rgba(212,160,48,0.4);
+  color: var(--accent);
+}
+
+.backup-btn.restore:active {
+  background: var(--accent-dim);
+}
+
+.backup-icon {
+  font-size: 16px;
+}
+
+.backup-hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
 /* ── Danger zone ── */
 .danger-zone {
   padding: 8px 20px 32px;

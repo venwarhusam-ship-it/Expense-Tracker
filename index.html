@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#0d0d0d">
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="icon-192.png">
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
   <title>Expense Tracker</title>
 </head>
 <body>
@@ -75,6 +75,24 @@
     <div class="empty-state" id="history-empty" style="display:none">
       <p>No expenses yet</p>
     </div>
+
+    <!-- Backup & Restore -->
+    <div class="backup-section">
+      <div class="backup-section-title">Backup &amp; Restore</div>
+      <div class="backup-row">
+        <button class="backup-btn" id="backup-btn">
+          <span class="backup-icon">⬇</span>
+          <span>Export Backup</span>
+        </button>
+        <button class="backup-btn restore" id="restore-btn">
+          <span class="backup-icon">⬆</span>
+          <span>Import Backup</span>
+        </button>
+      </div>
+      <p class="backup-hint">Export saves a .json file. Import replaces all current data.</p>
+      <input type="file" id="restore-file-input" accept=".json,application/json" style="display:none">
+    </div>
+
     <div class="danger-zone">
       <button class="clear-data-btn" id="clear-data-btn">Clear All Data</button>
     </div>
@@ -181,6 +199,6 @@
 </nav>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="app.js?v=6"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
