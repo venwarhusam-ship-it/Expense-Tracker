@@ -44,7 +44,8 @@ body {
 .app {
   position: fixed;
   inset: 0;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom));
+  top: env(safe-area-inset-top, 0px);
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -76,11 +77,9 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(var(--nav-height) + env(safe-area-inset-bottom));
-  padding-bottom: env(safe-area-inset-bottom);
+  /* height auto-expands via padding; content stays above home indicator */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: #0d0d0d;
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid var(--border);
   display: flex;
   align-items: flex-start;
@@ -94,7 +93,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  height: var(--nav-height);
+  min-height: var(--nav-height);
   background: none;
   border: none;
   color: var(--muted);
