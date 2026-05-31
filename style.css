@@ -17,7 +17,7 @@
   --green: #5a8a6a;
   --radius-card: 16px;
   --radius-btn: 10px;
-  --nav-height: 68px;
+  --nav-height: 54px;
 }
 
 html {
@@ -91,7 +91,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 3px;
   height: var(--nav-height);
   background: none;
   border: none;
