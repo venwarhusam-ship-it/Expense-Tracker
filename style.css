@@ -22,19 +22,20 @@
 
 html {
   height: 100%;
-  /* Fills the iOS safe-area / home-indicator zone with the same
-     colour as the nav bar so there is no visible gap */
   background: #0d0d0d;
 }
 
 body {
   height: 100%;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
   color: var(--text);
   font-family: system-ui, -apple-system, sans-serif;
   font-size: 16px;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 /* ── Scrollbar ── */
@@ -42,10 +43,8 @@ body {
 
 /* ── App shell ── */
 .app {
-  position: fixed;
-  inset: 0;
-  top: env(safe-area-inset-top, 0px);
-  bottom: var(--nav-height);
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -73,11 +72,10 @@ body {
 
 /* ── Bottom nav ── */
 .bottom-nav {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: var(--nav-height);
+  flex-shrink: 0;
+  width: 100%;
+  height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
   background: #0d0d0d;
   border-top: 1px solid var(--border);
   display: flex;
