@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  --detected-bottom: 0px;
   --bg: #0a0a0a;
   --surface: #141414;
   --elevated: #1c1c1c;
@@ -74,8 +75,8 @@ body {
 .bottom-nav {
   flex-shrink: 0;
   width: 100%;
-  height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: calc(var(--nav-height) + var(--detected-bottom));
+  padding-bottom: var(--detected-bottom);
   background: #0d0d0d;
   border-top: 1px solid var(--border);
   display: flex;
