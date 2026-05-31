@@ -37,12 +37,15 @@ let weeklyBarInst = null;
 //  INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  // Detect standalone vs browser mode and apply correct bottom inset
-  const isStandalone = window.navigator.standalone === true;
-  const gap = Math.round(window.screen.height - window.innerHeight);
-  document.documentElement.style.setProperty('--detected-bottom', gap > 10 ? gap + 'px' : '0px');
-  // Temporary debug: show mode info in console
-  console.log('Standalone:', isStandalone, '| screen.height:', window.screen.height, '| innerHeight:', window.innerHeight, '| gap:', gap);
+  // TEMPORARY DIAGNOSTIC — will be removed after fix
+  const dbg = document.createElement('div');
+  dbg.style.cssText = 'position:fixed;top:60px;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:13px;z-index:99999;line-height:1.6;';
+  dbg.innerHTML =
+    'innerH: ' + window.innerHeight + '<br>' +
+    'screenH: ' + window.screen.height + '<br>' +
+    'dpr: ' + window.devicePixelRatio + '<br>' +
+    'standalone: ' + window.navigator.standalone;
+  document.body.appendChild(dbg);
 
   // Read URL params BEFORE rendering anything
   const urlParams = new URLSearchParams(window.location.search);
