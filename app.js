@@ -37,15 +37,12 @@ let weeklyBarInst = null;
 //  INIT
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
-  // TEMPORARY DIAGNOSTIC — will be removed after fix
-  const dbg = document.createElement('div');
-  dbg.style.cssText = 'position:fixed;top:60px;left:0;right:0;background:#c00;color:#fff;padding:8px 12px;font-size:13px;z-index:99999;line-height:1.6;';
-  dbg.innerHTML =
-    'innerH: ' + window.innerHeight + '<br>' +
-    'screenH: ' + window.screen.height + '<br>' +
-    'dpr: ' + window.devicePixelRatio + '<br>' +
-    'standalone: ' + window.navigator.standalone;
-  document.body.appendChild(dbg);
+  // On iOS standalone, window.innerHeight under-reports the true screen height
+  // by the home-indicator zone. Set body height to the real screen height so
+  // the flex nav bar reaches the physical screen edge.
+  if (window.navigator.standalone && window.screen.height > window.innerHeight) {
+    document.body.style.height = window.screen.height + 'px';
+  }
 
   // Read URL params BEFORE rendering anything
   const urlParams = new URLSearchParams(window.location.search);
