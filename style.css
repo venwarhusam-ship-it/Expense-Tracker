@@ -77,13 +77,24 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: var(--nav-height);
   background: #0d0d0d;
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
   z-index: 100;
+}
+
+/* In standalone PWA mode env(safe-area-inset-bottom) returns 0 on iOS,
+   so hardcode the Face ID home-indicator height instead */
+@media all and (display-mode: standalone) {
+  .bottom-nav {
+    height: calc(var(--nav-height) + 34px);
+    padding-bottom: 34px;
+  }
+  .app {
+    bottom: calc(var(--nav-height) + 34px);
+  }
 }
 
 .nav-item {
