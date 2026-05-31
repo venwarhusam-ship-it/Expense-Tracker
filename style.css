@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  --bottom-inset: 0px; /* overridden by JS on iOS standalone */
   --bg: #0a0a0a;
   --surface: #141414;
   --elevated: #1c1c1c;
@@ -74,7 +75,8 @@ body {
 .bottom-nav {
   flex-shrink: 0;
   width: 100%;
-  height: var(--nav-height);
+  height: calc(var(--nav-height) + var(--bottom-inset));
+  padding-bottom: var(--bottom-inset);
   background: #0d0d0d;
   border-top: 1px solid var(--border);
   display: flex;

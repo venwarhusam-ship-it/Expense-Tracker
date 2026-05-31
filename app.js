@@ -38,10 +38,15 @@ let weeklyBarInst = null;
 // ═══════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
   // On iOS standalone, window.innerHeight under-reports the true screen height
-  // by the home-indicator zone. Set body height to the real screen height so
-  // the flex nav bar reaches the physical screen edge.
-  if (window.navigator.standalone && window.screen.height > window.innerHeight) {
-    document.body.style.height = window.screen.height + 'px';
+  // by the home-indicator zone. Extend body to the real screen height and
+  // reserve that gap as padding inside the nav bar so icons sit above the
+  // home indicator on any device automatically.
+  if (window.navigator.standalone) {
+    const bottomInset = Math.max(0, window.screen.height - window.innerHeight);
+    if (bottomInset > 0) {
+      document.body.style.height = window.screen.height + 'px';
+      document.documentElement.style.setProperty('--bottom-inset', bottomInset + 'px');
+    }
   }
 
   // Read URL params BEFORE rendering anything
