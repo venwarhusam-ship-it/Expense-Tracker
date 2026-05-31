@@ -77,12 +77,11 @@ body {
   bottom: 0;
   left: 0;
   right: 0;
-  /* height auto-expands via padding; content stays above home indicator */
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  height: var(--nav-height);
   background: #0d0d0d;
   border-top: 1px solid var(--border);
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   z-index: 100;
 }
 
@@ -93,7 +92,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: var(--nav-height);
+  height: var(--nav-height);
   background: none;
   border: none;
   color: var(--muted);
