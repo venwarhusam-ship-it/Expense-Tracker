@@ -27,7 +27,7 @@ let currentView = 'home';
 let selectedCurrency = 'IQD';
 let selectedCategory = null;
 let summaryMode = 'monthly';
-let summaryMonth = new Date();
+let summaryPeriodIndex = -1; // -1 = auto-init to most recent period
 let summaryWeekStart = getWeekStart(new Date());
 let pieChartInst = null;
 let monthlyBarInst = null;
@@ -1013,14 +1013,14 @@ function setupSummaryControls() {
     });
   });
 
-  // Month nav
+  // Period nav
   document.getElementById('prev-month').addEventListener('click', () => {
-    summaryMonth = new Date(summaryMonth.getFullYear(), summaryMonth.getMonth() - 1, 1);
-    renderMonthlySummary();
+    summaryPeriodIndex = Math.max(0, summaryPeriodIndex - 1);
+    renderPeriodSummary();
   });
   document.getElementById('next-month').addEventListener('click', () => {
-    summaryMonth = new Date(summaryMonth.getFullYear(), summaryMonth.getMonth() + 1, 1);
-    renderMonthlySummary();
+    summaryPeriodIndex++;
+    renderPeriodSummary();
   });
 
   // Week nav
@@ -1040,7 +1040,7 @@ function renderSummary() {
   if (summaryMode === 'monthly') {
     document.getElementById('monthly-section').style.display = '';
     document.getElementById('weekly-section').style.display = 'none';
-    renderMonthlySummary();
+    renderPeriodSummary();
   } else {
     document.getElementById('monthly-section').style.display = 'none';
     document.getElementById('weekly-section').style.display = '';
@@ -1048,14 +1048,48 @@ function renderSummary() {
   }
 }
 
-async function renderMonthlySummary() {
+async function renderPeriodSummary() {
+  const allPeriods = await getAllPeriods();
+  const sorted = allPeriods.slice().sort((a, b) => a.startDate.localeCompare(b.startDate));
+
+  const prevBtn = document.getElementById('prev-month');
+  const nextBtn = document.getElementById('next-month');
+
+  // No periods at all
+  if (sorted.length === 0) {
+    document.getElementById('summary-month-label').textContent = 'No periods yet';
+    prevBtn.disabled = true;
+    nextBtn.disabled = true;
+    document.getElementById('monthly-empty').style.display = 'flex';
+    document.getElementById('monthly-charts').style.display = 'none';
+    destroyChart('pie');
+    destroyChart('monthlyBar');
+    return;
+  }
+
+  // Auto-init or clamp index to valid range
+  if (summaryPeriodIndex < 0 || summaryPeriodIndex >= sorted.length) {
+    summaryPeriodIndex = sorted.length - 1;
+  }
+
+  const period  = sorted[summaryPeriodIndex];
+  const endDate = period.endDate || todayStr();
+
+  // Update nav arrow availability
+  prevBtn.disabled = summaryPeriodIndex <= 0;
+  nextBtn.disabled = summaryPeriodIndex >= sorted.length - 1;
+
+  // Label: "Jun 1 – Jun 30" or "Jun 1 – ongoing"
+  const label = period.endDate
+    ? `${fmtDate(period.startDate)} – ${fmtDate(period.endDate)}`
+    : `${fmtDate(period.startDate)} – ongoing`;
+  document.getElementById('summary-month-label').textContent = label;
+
+  // Filter expenses to this period
   const expenses = await getAllExpenses();
-  const prefix = monthPrefix(summaryMonth);
-  const month = expenses.filter((e) => e.date.startsWith(prefix));
+  const periodExp = expenses.filter((e) => e.date >= period.startDate && e.date <= endDate);
 
-  document.getElementById('summary-month-label').textContent = fmtMonthYear(summaryMonth);
-
-  if (month.length === 0) {
+  if (periodExp.length === 0) {
     document.getElementById('monthly-empty').style.display = 'flex';
     document.getElementById('monthly-charts').style.display = 'none';
     destroyChart('pie');
@@ -1065,10 +1099,9 @@ async function renderMonthlySummary() {
   document.getElementById('monthly-empty').style.display = 'none';
   document.getElementById('monthly-charts').style.display = '';
 
-  // ── Pie chart: amount spent per category ──
-  // Key = display name (uses customCategory for "Other" items)
+  // ── Pie chart: by category ──
   const catIQD = {}, catUSD = {}, catColor = {};
-  month.forEach((e) => {
+  periodExp.forEach((e) => {
     const key = e.category === 'Other' && e.customCategory
       ? e.customCategory : e.category;
     const color = (CATEGORIES.find((c) => c.name === e.category) || { color: '#606060' }).color;
@@ -1077,8 +1110,7 @@ async function renderMonthlySummary() {
     else                       catUSD[key] = (catUSD[key] || 0) + e.amount;
   });
 
-  // Use IQD if any IQD data exists; otherwise fall back to USD
-  const hasIQDPie = Object.values(catIQD).some((v) => v > 0);
+  const hasIQDPie   = Object.values(catIQD).some((v) => v > 0);
   const pieSource   = hasIQDPie ? catIQD : catUSD;
   const pieCurrency = hasIQDPie ? 'IQD'  : 'USD';
 
@@ -1087,19 +1119,38 @@ async function renderMonthlySummary() {
   const pieColors  = activeCategories.map((k) => catColor[k] || '#606060');
   buildPieChart(activeCategories, pieValues, pieColors, pieCurrency);
 
-  // ── Monthly bar chart: daily IQD + USD ──
-  const daysInMonth = new Date(
-    summaryMonth.getFullYear(), summaryMonth.getMonth() + 1, 0
-  ).getDate();
-  const dailyIQD = Array(daysInMonth).fill(0);
-  const dailyUSD = Array(daysInMonth).fill(0);
-  month.forEach((e) => {
-    const day = parseInt(e.date.split('-')[2], 10) - 1;
-    if (e.currency === 'IQD') dailyIQD[day] += e.amount;
-    else dailyUSD[day] += e.amount;
+  // ── Bar chart: one bar per day across the period ──
+  // Build ordered list of every date in the period
+  const days = [];
+  const cursor = new Date(period.startDate + 'T00:00:00');
+  const stop   = new Date(endDate + 'T00:00:00');
+  while (cursor <= stop) {
+    days.push(dateToStr(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  const dailyIQD = Array(days.length).fill(0);
+  const dailyUSD = Array(days.length).fill(0);
+  periodExp.forEach((e) => {
+    const idx = days.indexOf(e.date);
+    if (idx >= 0) {
+      if (e.currency === 'IQD') dailyIQD[idx] += e.amount;
+      else dailyUSD[idx] += e.amount;
+    }
   });
 
-  const dayLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  // Labels: plain day number when single-month; "Jun 1" when crossing months
+  const startMonth = new Date(period.startDate + 'T00:00:00').getMonth();
+  const endMonth   = new Date(endDate + 'T00:00:00').getMonth();
+  const multiMonth = startMonth !== endMonth;
+  const dayLabels  = days.map((d) => {
+    const [yr, mo, dy] = d.split('-').map(Number);
+    if (multiMonth) {
+      return new Date(yr, mo - 1, dy).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+    return String(dy);
+  });
+
   buildBarChart(
     'monthly-bar-chart', 'monthlyBar',
     dayLabels,
@@ -1108,7 +1159,7 @@ async function renderMonthlySummary() {
   );
 
   // ── Breakdown table ──
-  buildBreakdownTable('monthly-breakdown', month);
+  buildBreakdownTable('monthly-breakdown', periodExp);
 }
 
 async function renderWeeklySummary() {
